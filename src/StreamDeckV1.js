@@ -55,6 +55,8 @@ class StreamDeckV1 { // eslint-disable-line
     'info-open': 1,
     'users': 9,
     'users-open': 9,
+    'fellow': 4,
+    'fellow-open': 4,
     'chat': 8,
     'chat-open': 8,
     'activities': 7,
