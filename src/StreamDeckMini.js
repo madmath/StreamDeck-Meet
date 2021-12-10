@@ -77,12 +77,10 @@ class StreamDeckMini { // eslint-disable-line
   #PACKET_HEADER_LENGTH = 16;
   #MAX_PAYLOAD_LENGTH = this.#PACKET_SIZE - this.#PACKET_HEADER_LENGTH;
 
-
   /**
    * Constructor
    */
-  constructor() {
-  }
+  constructor() {}
 
   /**
    * Set the brightness of the StreamDeck panel.
@@ -162,8 +160,9 @@ class StreamDeckMini { // eslint-disable-line
       const packet = new Uint8Array(this.#PACKET_SIZE);
       packet.set(new Uint8Array(header));
       packet.set(
-          new Uint8Array(buffer.slice(start, end)),
-          this.#PACKET_HEADER_LENGTH);
+        new Uint8Array(buffer.slice(start, end)),
+        this.#PACKET_HEADER_LENGTH
+      );
 
       start = end;
       bytesRemaining = bytesRemaining - byteCount;

@@ -8,6 +8,7 @@
       "matches": ["https://meet.google.com/*"],
       "js": [
         "CanvasToBMP.js",
+        "ElgatoLights.js",
         "HueLights.js",
         "StreamDeck.js",
         "StreamDeckMini.js",
@@ -18,7 +19,5 @@
       ]
     }
   ],
-  "web_accessible_resources": [
-    "ico-svg/*"
-  ]
+  "web_accessible_resources": ["ico-svg/*"]
 }

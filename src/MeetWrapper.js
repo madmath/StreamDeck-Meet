@@ -16,43 +16,48 @@
 
 /* eslint-disable no-invalid-this */
 
-'use strict';
+"use strict";
 
-class MeetWrapper { // eslint-disable-line
+class MeetWrapper {
+  // eslint-disable-line
   #currentRoom;
   #hasBeenActivated = false;
 
   #ROOM_NAMES = {
-    lobby: 'lobby',
-    greenRoom: 'greenRoom',
-    meeting: 'meeting',
-    exitHall: 'exitHall',
+    lobby: "lobby",
+    greenRoom: "greenRoom",
+    meeting: "meeting",
+    exitHall: "exitHall",
   };
 
   #streamDeck;
   #hueLights;
+  #elgatoLights;
 
   /**
    * Constructor
    *
    * @param {HIDDevice} streamDeck
    * @param {HueHelper} hueLights
+   * @param {ElgatoLights} elgatoLights
    */
-  constructor(streamDeck, hueLights) {
+  constructor(streamDeck, hueLights, elgatoLights) {
     this.#streamDeck = streamDeck;
-    this.#streamDeck.addEventListener('keydown', (evt) => {
+    this.#streamDeck.addEventListener("keydown", (evt) => {
       this.#handleStreamDeckPress(evt.detail.buttonId);
     });
-
     if (hueLights?.isAvailable) {
       this.#hueLights = hueLights;
     }
+    if (elgatoLights?.isAvailable) {
+      this.#elgatoLights = elgatoLights;
+    }
 
-    window.addEventListener('fullscreenchange', () => {
+    window.addEventListener("fullscreenchange", () => {
       this.#drawFullScreenButton();
     });
 
-    window.addEventListener('click', () => {
+    window.addEventListener("click", () => {
       if (this.#hasBeenActivated || !navigator.userActivation.isActive) {
         return;
       }
@@ -62,23 +67,22 @@ class MeetWrapper { // eslint-disable-line
 
     // Watch for room changes
     const pathname = window.location.pathname;
-    if (pathname === '/' || pathname === '/landing') {
+    if (pathname === "/" || pathname === "/landing") {
       this.#enterLobby();
       return;
     }
 
     const bodyObserver = new MutationObserver(() => {
-      if (document.querySelector('div[data-second-screen]')) {
+      if (document.querySelector("div[data-second-screen]")) {
         this.#enterMeeting();
-      } else if (document.querySelector('[jscontroller=dyDNGc]')) {
+      } else if (document.querySelector("[jscontroller=dyDNGc]")) {
         this.#enterGreenRoom();
-      } else if (document.querySelector('[jsname=r4nke]')) {
+      } else if (document.querySelector("[jsname=r4nke]")) {
         this.#enterExitHall();
       }
     });
-    bodyObserver.observe(document.body, {attributes: true, childList: true});
+    bodyObserver.observe(document.body, { attributes: true, childList: true });
   }
-
 
   /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
    *
@@ -94,16 +98,20 @@ class MeetWrapper { // eslint-disable-line
       return;
     }
     this.#currentRoom = this.#ROOM_NAMES.lobby;
-    console.log('-ENTER-', this.#currentRoom);
+    console.log("-ENTER-", this.#currentRoom);
 
     this.#resetButtons();
     this.#drawHueButtons();
+    this.#drawElgatoButtons();
     this.#drawFullScreenButton();
     this.#drawButton(`start-next`);
     this.#drawButton(`start-instant`);
 
     if (this.#hueLights?.auto) {
       this.#hueLights.on(false);
+    }
+    if (this.#elgatoLights?.auto) {
+      this.#elgatoLights.on(false);
     }
   }
 
@@ -115,10 +123,11 @@ class MeetWrapper { // eslint-disable-line
       return;
     }
     this.#currentRoom = this.#ROOM_NAMES.greenRoom;
-    console.log('-ENTER-', this.#currentRoom);
+    console.log("-ENTER-", this.#currentRoom);
 
     this.#resetButtons();
     this.#drawHueButtons();
+    this.#drawElgatoButtons();
     this.#drawFullScreenButton();
     this.#drawButton(`enter-meeting`);
     this.#drawButton(`home`);
@@ -134,6 +143,9 @@ class MeetWrapper { // eslint-disable-line
     if (this.#hueLights?.auto) {
       this.#hueLights.on(true);
     }
+    if (this.#elgatoLights?.auto) {
+      this.#elgatoLights.on(true);
+    }
   }
 
   /**
@@ -144,10 +156,11 @@ class MeetWrapper { // eslint-disable-line
       return;
     }
     this.#currentRoom = this.#ROOM_NAMES.meeting;
-    console.log('-ENTER-', this.#currentRoom);
+    console.log("-ENTER-", this.#currentRoom);
 
     this.#resetButtons();
     this.#drawHueButtons();
+    this.#drawElgatoButtons();
     this.#drawFullScreenButton();
     this.#drawButton(`end-call`);
 
@@ -176,6 +189,9 @@ class MeetWrapper { // eslint-disable-line
     if (this.#hueLights?.auto) {
       this.#hueLights.on(true);
     }
+    if (this.#elgatoLights?.auto) {
+      this.#elgatoLights.on(true);
+    }
   }
 
   /**
@@ -186,10 +202,11 @@ class MeetWrapper { // eslint-disable-line
       return;
     }
     this.#currentRoom = this.#ROOM_NAMES.exitHall;
-    console.log('-ENTER-', this.#currentRoom);
+    console.log("-ENTER-", this.#currentRoom);
 
     this.#resetButtons();
     this.#drawHueButtons();
+    this.#drawElgatoButtons();
     this.#drawFullScreenButton();
     this.#drawButton(`rejoin`);
     this.#drawButton(`home`);
@@ -197,8 +214,10 @@ class MeetWrapper { // eslint-disable-line
     if (this.#hueLights?.auto) {
       this.#hueLights.on(false);
     }
+    if (this.#elgatoLights?.auto) {
+      this.#elgatoLights.on(false);
+    }
   }
-
 
   /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
    *
@@ -213,28 +232,40 @@ class MeetWrapper { // eslint-disable-line
    */
   #handleStreamDeckPress(buttonId) {
     // Hue light buttons, used in all rooms.
-    if (this.#hueLights) {
-      if (buttonId === this.#streamDeck.buttonNameToId('light-on')) {
-        this.#hueLights.on(true);
+    if (this.#hueLights || this.#elgatoLights) {
+      if (buttonId === this.#streamDeck.buttonNameToId("light-on")) {
+        if (this.#hueLights) this.#hueLights.on(true);
+        if (this.#elgatoLights)
+          this.#tapElgato().then(() => {
+            this.#drawElgatoButtons();
+          });
+
         return;
       }
-      if (buttonId === this.#streamDeck.buttonNameToId('light-off')) {
-        this.#hueLights.on(false);
+      if (buttonId === this.#streamDeck.buttonNameToId("light-off")) {
+        if (this.#hueLights) this.#hueLights.on(false);
+        if (this.#elgatoLights)
+          this.#tapElgato().then(() => {
+            this.#drawElgatoButtons();
+          });
         return;
       }
     }
 
     // Toggle full screen, used in all rooms.
-    if (buttonId === this.#streamDeck.buttonNameToId('fullscreen-on')) {
+    if (buttonId === this.#streamDeck.buttonNameToId("fullscreen-on")) {
       this.#toggleFullScreen();
       return;
     }
 
     // Available while in the lobby.
     if (this.#currentRoom === this.#ROOM_NAMES.lobby) {
-      if (buttonId === this.#streamDeck.buttonNameToId('start-next')) {
+      if (buttonId === this.#streamDeck.buttonNameToId("start-next")) {
         this.#tapStartNextMeeting();
-      } else if (buttonId === this.#streamDeck.buttonNameToId('start-instant')) { // eslint-disable-line
+      } else if (
+        buttonId === this.#streamDeck.buttonNameToId("start-instant")
+      ) {
+        // eslint-disable-line
         this.#tapStartInstantMeeting();
       }
       return;
@@ -242,13 +273,13 @@ class MeetWrapper { // eslint-disable-line
 
     // Available while in the green room.
     if (this.#currentRoom === this.#ROOM_NAMES.greenRoom) {
-      if (buttonId === this.#streamDeck.buttonNameToId('enter-meeting')) {
+      if (buttonId === this.#streamDeck.buttonNameToId("enter-meeting")) {
         this.#tapEnterMeeting();
-      } else if (buttonId === this.#streamDeck.buttonNameToId('mic')) {
+      } else if (buttonId === this.#streamDeck.buttonNameToId("mic")) {
         this.#tapGreenRoomMic();
-      } else if (buttonId === this.#streamDeck.buttonNameToId('cam')) {
+      } else if (buttonId === this.#streamDeck.buttonNameToId("cam")) {
         this.#tapGreenRoomCam();
-      } else if (buttonId === this.#streamDeck.buttonNameToId('home')) {
+      } else if (buttonId === this.#streamDeck.buttonNameToId("home")) {
         this.#resetButtons();
         window.history.back();
       }
@@ -285,9 +316,9 @@ class MeetWrapper { // eslint-disable-line
 
     // Available while in the exit hall.
     if (this.#currentRoom === this.#ROOM_NAMES.exitHall) {
-      if (buttonId === this.#streamDeck.buttonNameToId('rejoin')) {
+      if (buttonId === this.#streamDeck.buttonNameToId("rejoin")) {
         this.#tapRejoin();
-      } else if (buttonId === this.#streamDeck.buttonNameToId('home')) {
+      } else if (buttonId === this.#streamDeck.buttonNameToId("home")) {
         this.#tapHome();
       }
       return;
@@ -335,6 +366,21 @@ class MeetWrapper { // eslint-disable-line
   }
 
   /**
+   * Draw buttons for Elgato
+   */
+  #drawElgatoButtons() {
+    if (!this.#elgatoLights) {
+      return;
+    }
+
+    this.#elgatoLights.areOn().then((json) => {
+      json;
+      if (json.state == "on") this.#drawButton(`light-on`);
+      else this.#drawButton(`light-off`);
+    });
+  }
+
+  /**
    * Draw buttons for full screen toggle.
    */
   #drawFullScreenButton() {
@@ -348,7 +394,6 @@ class MeetWrapper { // eslint-disable-line
     }
     this.#drawButton(`fullscreen-off`);
   }
-
 
   /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
    *
@@ -367,7 +412,7 @@ class MeetWrapper { // eslint-disable-line
     const micObserver = new MutationObserver(() => {
       this.#updateMicButton();
     });
-    micObserver.observe(micButton, {attributeFilter: ['data-is-muted']});
+    micObserver.observe(micButton, { attributeFilter: ["data-is-muted"] });
     this.#updateMicButton();
   }
 
@@ -382,7 +427,7 @@ class MeetWrapper { // eslint-disable-line
     const camObserver = new MutationObserver(() => {
       this.#updateCamButton();
     });
-    camObserver.observe(camButton, {attributeFilter: ['data-is-muted']});
+    camObserver.observe(camButton, { attributeFilter: ["data-is-muted"] });
     this.#updateCamButton();
   }
 
@@ -397,7 +442,7 @@ class MeetWrapper { // eslint-disable-line
     const ccObserver = new MutationObserver(() => {
       this.#updateCCButton();
     });
-    ccObserver.observe(ccButton, {attributeFilter: ['aria-pressed']});
+    ccObserver.observe(ccButton, { attributeFilter: ["aria-pressed"] });
     this.#updateCCButton();
   }
 
@@ -427,7 +472,7 @@ class MeetWrapper { // eslint-disable-line
     const handObserver = new MutationObserver(() => {
       this.#updateHandButton();
     });
-    handObserver.observe(handButton, {attributeFilter: ['aria-pressed']});
+    handObserver.observe(handButton, { attributeFilter: ["aria-pressed"] });
     this.#updateHandButton();
   }
 
@@ -442,7 +487,7 @@ class MeetWrapper { // eslint-disable-line
     const infoObserver = new MutationObserver(() => {
       this.#updateInfoButton();
     });
-    infoObserver.observe(infoButton, {attributeFilter: ['aria-pressed']});
+    infoObserver.observe(infoButton, { attributeFilter: ["aria-pressed"] });
     this.#updateInfoButton();
   }
 
@@ -457,7 +502,7 @@ class MeetWrapper { // eslint-disable-line
     const observer = new MutationObserver(() => {
       this.#updatePeopleButton();
     });
-    observer.observe(button, {attributeFilter: ['aria-pressed']});
+    observer.observe(button, { attributeFilter: ["aria-pressed"] });
     this.#updatePeopleButton();
   }
 
@@ -472,7 +517,7 @@ class MeetWrapper { // eslint-disable-line
     const observer = new MutationObserver(() => {
       this.#updateChatButton();
     });
-    observer.observe(button, {attributeFilter: ['aria-pressed']});
+    observer.observe(button, { attributeFilter: ["aria-pressed"] });
     this.#updateChatButton();
   }
 
@@ -487,7 +532,7 @@ class MeetWrapper { // eslint-disable-line
     const observer = new MutationObserver(() => {
       this.#updateActivitiesButton();
     });
-    observer.observe(button, {attributeFilter: ['aria-pressed']});
+    observer.observe(button, { attributeFilter: ["aria-pressed"] });
     this.#updateActivitiesButton();
   }
 
@@ -502,7 +547,7 @@ class MeetWrapper { // eslint-disable-line
     const observer = new MutationObserver(() => {
       this.#updatePresentingButton();
     });
-    observer.observe(presentationBar, {childList: true});
+    observer.observe(presentationBar, { childList: true });
     this.#updatePresentingButton();
   }
 
@@ -517,7 +562,7 @@ class MeetWrapper { // eslint-disable-line
     const observer = new MutationObserver(() => {
       this.#updateGreenRoomMicButton();
     });
-    observer.observe(button, {attributeFilter: ['data-is-muted']});
+    observer.observe(button, { attributeFilter: ["data-is-muted"] });
     this.#updateGreenRoomMicButton();
   }
 
@@ -532,10 +577,9 @@ class MeetWrapper { // eslint-disable-line
     const observer = new MutationObserver(() => {
       this.#updateGreenRoomCamButton();
     });
-    observer.observe(button, {attributeFilter: ['data-is-muted']});
+    observer.observe(button, { attributeFilter: ["data-is-muted"] });
     this.#updateGreenRoomCamButton();
   }
-
 
   /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
    *
@@ -552,8 +596,8 @@ class MeetWrapper { // eslint-disable-line
     if (!button) {
       return;
     }
-    const newVal = button.dataset?.isMuted == 'true';
-    const img = newVal ? 'mic-disabled' : 'mic';
+    const newVal = button.dataset?.isMuted == "true";
+    const img = newVal ? "mic-disabled" : "mic";
     this.#drawButton(img);
   }
 
@@ -565,8 +609,8 @@ class MeetWrapper { // eslint-disable-line
     if (!button) {
       return;
     }
-    const newVal = button.dataset?.isMuted == 'true';
-    const img = newVal ? 'cam-disabled' : 'cam';
+    const newVal = button.dataset?.isMuted == "true";
+    const img = newVal ? "cam-disabled" : "cam";
     this.#drawButton(img);
   }
 
@@ -578,8 +622,8 @@ class MeetWrapper { // eslint-disable-line
     if (!button) {
       return;
     }
-    const newVal = button.getAttribute('aria-pressed') == 'true';
-    const img = newVal ? 'cc-on' : 'cc';
+    const newVal = button.getAttribute("aria-pressed") == "true";
+    const img = newVal ? "cc-on" : "cc";
     this.#drawButton(img);
   }
 
@@ -604,8 +648,8 @@ class MeetWrapper { // eslint-disable-line
     if (!button) {
       return;
     }
-    const newVal = button.getAttribute('aria-pressed') == 'true';
-    const img = newVal ? 'hand-raised' : 'hand';
+    const newVal = button.getAttribute("aria-pressed") == "true";
+    const img = newVal ? "hand-raised" : "hand";
     this.#drawButton(img);
   }
 
@@ -617,8 +661,8 @@ class MeetWrapper { // eslint-disable-line
     if (!button) {
       return;
     }
-    const newVal = button.getAttribute('aria-pressed') == 'true';
-    const img = newVal ? 'info-open' : 'info';
+    const newVal = button.getAttribute("aria-pressed") == "true";
+    const img = newVal ? "info-open" : "info";
     this.#drawButton(img);
   }
 
@@ -630,8 +674,8 @@ class MeetWrapper { // eslint-disable-line
     if (!button) {
       return;
     }
-    const newVal = button.getAttribute('aria-pressed') == 'true';
-    const img = newVal ? 'users-open' : 'users';
+    const newVal = button.getAttribute("aria-pressed") == "true";
+    const img = newVal ? "users-open" : "users";
     this.#drawButton(img);
   }
 
@@ -643,8 +687,8 @@ class MeetWrapper { // eslint-disable-line
     if (!button) {
       return;
     }
-    const newVal = button.getAttribute('aria-pressed') == 'true';
-    const img = newVal ? 'chat-open' : 'chat';
+    const newVal = button.getAttribute("aria-pressed") == "true";
+    const img = newVal ? "chat-open" : "chat";
     this.#drawButton(img);
   }
 
@@ -656,8 +700,8 @@ class MeetWrapper { // eslint-disable-line
     if (!button) {
       return;
     }
-    const newVal = button.getAttribute('aria-pressed') == 'true';
-    const img = newVal ? 'activities-open' : 'activities';
+    const newVal = button.getAttribute("aria-pressed") == "true";
+    const img = newVal ? "activities-open" : "activities";
     this.#drawButton(img);
   }
 
@@ -666,7 +710,7 @@ class MeetWrapper { // eslint-disable-line
    */
   #updatePresentingButton() {
     const button = this.#getStopPresentingButton();
-    const img = button ? 'present-stop' : 'blank';
+    const img = button ? "present-stop" : "blank";
     this.#drawButton(img);
   }
 
@@ -678,8 +722,8 @@ class MeetWrapper { // eslint-disable-line
     if (!button) {
       return;
     }
-    const newVal = button.dataset?.isMuted == 'true';
-    const img = newVal ? 'mic-disabled' : 'mic';
+    const newVal = button.dataset?.isMuted == "true";
+    const img = newVal ? "mic-disabled" : "mic";
     this.#drawButton(img);
   }
 
@@ -691,11 +735,10 @@ class MeetWrapper { // eslint-disable-line
     if (!button) {
       return;
     }
-    const newVal = button.dataset?.isMuted == 'true';
-    const img = newVal ? 'cam-disabled' : 'cam';
+    const newVal = button.dataset?.isMuted == "true";
+    const img = newVal ? "cam-disabled" : "cam";
     this.#drawButton(img);
   }
-
 
   /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
    *
@@ -709,7 +752,7 @@ class MeetWrapper { // eslint-disable-line
    * @return {?Element}
    */
   #getStartInstantMeetingButton() {
-    return document.querySelector('[jsname=CuSyi]');
+    return document.querySelector("[jsname=CuSyi]");
   }
 
   /**
@@ -718,7 +761,7 @@ class MeetWrapper { // eslint-disable-line
    * @return {?Element}
    */
   #getStartNextMeetingButton() {
-    return document.querySelector('[data-default-focus=true]');
+    return document.querySelector("[data-default-focus=true]");
   }
 
   /**
@@ -727,7 +770,7 @@ class MeetWrapper { // eslint-disable-line
    * @return {?Element}
    */
   #getEnterMeetingButton() {
-    return document.querySelector('[jsname=Qx7uuf]');
+    return document.querySelector("[jsname=Qx7uuf]");
   }
 
   /**
@@ -736,7 +779,7 @@ class MeetWrapper { // eslint-disable-line
    * @return {?Element}
    */
   #getMeetingInfoDialog() {
-    return document.querySelector('[jscontroller=Cmkwqf]');
+    return document.querySelector("[jscontroller=Cmkwqf]");
   }
 
   /**
@@ -744,12 +787,12 @@ class MeetWrapper { // eslint-disable-line
    *
    * @return {?Element}
    */
-    #getMeetingInfoDialogCloseButton() {
-      const dialog = document.querySelector('[jscontroller=Cmkwqf]');
-      if (dialog) {
-        return dialog.querySelector('[aria-label=Close]');
-      }
+  #getMeetingInfoDialogCloseButton() {
+    const dialog = document.querySelector("[jscontroller=Cmkwqf]");
+    if (dialog) {
+      return dialog.querySelector("[aria-label=Close]");
     }
+  }
 
   /**
    * Get the presentation bar container (meeting).
@@ -757,7 +800,7 @@ class MeetWrapper { // eslint-disable-line
    * @return {?Element}
    */
   #getPresentationBar() {
-    return document.querySelector('[jscontroller=A5S1ke]');
+    return document.querySelector("[jscontroller=A5S1ke]");
   }
 
   /**
@@ -766,8 +809,13 @@ class MeetWrapper { // eslint-disable-line
    * @return {?Element}
    */
   #getMicButton() {
-    const sel = '[jscontroller=t8kvj]';
-    return document.querySelector(sel)?.querySelector('button');
+    const sel = "[jscontroller=t8kvj]";
+    return document.querySelector(sel)?.querySelector("button");
+  }
+
+  async #getElgatoButton() {
+    const newVal = await this.#elgatoLights.areOn();
+    return newVal.state == "on" ? "light-on" : "light-off";
   }
 
   /**
@@ -776,8 +824,8 @@ class MeetWrapper { // eslint-disable-line
    * @return {?Element}
    */
   #getCamButton() {
-    const sel = '[jscontroller=DXtw0b]';
-    return document.querySelector(sel)?.querySelector('button');
+    const sel = "[jscontroller=DXtw0b]";
+    return document.querySelector(sel)?.querySelector("button");
   }
 
   /**
@@ -786,8 +834,8 @@ class MeetWrapper { // eslint-disable-line
    * @return {?Element}
    */
   #getCCButton() {
-    const sel = '[jscontroller=U1Cub]';
-    return document.querySelector(sel)?.querySelector('button');
+    const sel = "[id=fellow-button]"; // "[jscontroller=U1Cub]";
+    return document.querySelector(sel);
   }
 
   /**
@@ -806,8 +854,8 @@ class MeetWrapper { // eslint-disable-line
    * @return {?Element}
    */
   #getHandButton() {
-    const sel = '[jscontroller=HRWIlc]';
-    return document.querySelector(sel)?.querySelector('button');
+    const sel = "[jscontroller=HRWIlc]";
+    return document.querySelector(sel)?.querySelector("button");
   }
 
   /**
@@ -816,7 +864,7 @@ class MeetWrapper { // eslint-disable-line
    * @return {?Element}
    */
   #getStopPresentingButton() {
-    const sel = '[jsname=aK5XXd]';
+    const sel = "[jsname=aK5XXd]";
     return document.querySelector(sel);
   }
 
@@ -866,7 +914,7 @@ class MeetWrapper { // eslint-disable-line
    * @return {?Element}
    */
   #getHangupButton() {
-    const sel = '[jsname=CQylAd]';
+    const sel = "[jsname=CQylAd]";
     return document.querySelector(sel);
   }
 
@@ -876,8 +924,8 @@ class MeetWrapper { // eslint-disable-line
    * @return {?Element}
    */
   #getGreenRoomMicButton() {
-    const sel = '[jscontroller=t8kvj]';
-    return document.querySelector(sel)?.querySelector('[role=button]');
+    const sel = "[jscontroller=t8kvj]";
+    return document.querySelector(sel)?.querySelector("[role=button]");
   }
 
   /**
@@ -886,8 +934,8 @@ class MeetWrapper { // eslint-disable-line
    * @return {?Element}
    */
   #getGreenRoomCamButton() {
-    const sel = '[jscontroller=DXtw0b]';
-    return document.querySelector(sel)?.querySelector('[role=button]');
+    const sel = "[jscontroller=DXtw0b]";
+    return document.querySelector(sel)?.querySelector("[role=button]");
   }
 
   /**
@@ -896,7 +944,7 @@ class MeetWrapper { // eslint-disable-line
    * @return {?Element}
    */
   #getRejoinButton() {
-    const sel = '[jsname=oI7Fj] button';
+    const sel = "[jsname=oI7Fj] button";
     return document.querySelector(sel);
   }
 
@@ -906,7 +954,7 @@ class MeetWrapper { // eslint-disable-line
    * @return {?Element}
    */
   #getReturnToHomeButton() {
-    const sel = '[jsname=WIVZEd] button';
+    const sel = "[jsname=WIVZEd] button";
     return document.querySelector(sel);
   }
 
@@ -989,6 +1037,15 @@ class MeetWrapper { // eslint-disable-line
     const button = this.#getMicButton();
     if (button) {
       button.click();
+    }
+  }
+
+  async #tapElgato() {
+    const buttonLabel = await this.#getElgatoButton();
+    if (buttonLabel == "light-off") {
+      return this.#elgatoLights.on(true);
+    } else if (buttonLabel == "light-on") {
+      return this.#elgatoLights.on(false);
     }
   }
 

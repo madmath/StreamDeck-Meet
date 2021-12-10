@@ -14,28 +14,28 @@
  * limitations under the License.
  */
 
-'use strict';
+"use strict";
 
-/* global MeetWrapper, StreamDeck, HueLights */
+/* global MeetWrapper, StreamDeck, HueLights, ElgatoLights */
 
 const hueLights = new HueLights();
+const elgatoLights = new ElgatoLights();
 const streamDeck = new StreamDeck();
-const sdConnectButtonID = 'streamDeckHelperConnect';
-
+const sdConnectButtonID = "streamDeckHelperConnect";
 
 /**
  * Adds a Connect to StreamDeck button to the page.
  */
 function addConnectButton() {
-  if (window.location.pathname !== '/') {
+  if (window.location.pathname !== "/") {
     return;
   }
-  const elem = document.createElement('button');
+  const elem = document.createElement("button");
   elem.id = sdConnectButtonID;
-  elem.type = 'button';
-  elem.innerText = 'Connect StreamDeck';
-  elem.style = 'position: absolute;top: 100px;left:100px;z-index:100';
-  elem.addEventListener('click', async () => {
+  elem.type = "button";
+  elem.innerText = "Connect StreamDeck";
+  elem.style = "position: absolute;top: 100px;left:100px;z-index:100";
+  elem.addEventListener("click", async () => {
     elem.remove();
     await streamDeck.connect(true);
     startWrapper();
@@ -55,7 +55,7 @@ function startWrapper() {
     if (elem) {
       elem.remove();
     }
-    new MeetWrapper(streamDeck, hueLights);
+    new MeetWrapper(streamDeck, hueLights, elgatoLights);
     return true;
   }
   addConnectButton();
@@ -66,14 +66,14 @@ function startWrapper() {
  * Initialization, attempts to open the StreamDeck and then the Meet Wrapper.
  */
 async function go() {
-  if (window.location.pathname.startsWith('/linkredirect')) {
+  if (window.location.pathname.startsWith("/linkredirect")) {
     return;
   }
   await streamDeck.connect();
   if (startWrapper()) {
     return;
   }
-  streamDeck.addEventListener('connect', () => {
+  streamDeck.addEventListener("connect", () => {
     startWrapper();
   });
 }
